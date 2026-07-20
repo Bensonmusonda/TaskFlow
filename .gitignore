@@ -13,3 +13,26 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Built files and outputs
+/build
+/app/build
+*.apk
+*.aar
+*.aab
+
+# Android Studio / IntelliJ
+.idea/
+.gradle/
+*.iml
+*.iws
+*.ipr
+
+# Local configuration files
+local.properties
+.DS_Store
+
+# Logs & Caches
+/captures
+.externalNativeBuild
+.cxx/
