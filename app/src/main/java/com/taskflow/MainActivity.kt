@@ -44,9 +44,11 @@ import com.taskflow.ui.theme.TaskFlowTheme
 import com.taskflow.data.entity.Task
 import com.taskflow.data.entity.TaskList
 import com.taskflow.ui.components.EditTaskDialog
+import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
 import com.taskflow.ui.screens.ListsScreen
 import com.taskflow.ui.viewmodel.InboxViewModel
+import com.taskflow.ui.viewmodel.JournalViewModel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 import com.taskflow.ui.viewmodel.ListViewModel
 
@@ -54,6 +56,7 @@ import com.taskflow.ui.viewmodel.ListViewModel
 private sealed class Screen {
     object Inbox : Screen()
     object Lists : Screen()
+    object Journal : Screen()
     data class ListDetail(val list: TaskList) : Screen()
 }
 
@@ -72,6 +75,9 @@ class MainActivity : ComponentActivity() {
                     )
                     val listViewModel: ListViewModel = viewModel(
                         factory = ListViewModel.provideFactory(app.listRepository)
+                    )
+                    val journalViewModel: JournalViewModel = viewModel(
+                        factory = JournalViewModel.provideFactory(app.taskRepository, app.tagRepository)
                     )
                     val lists by listViewModel.lists.collectAsStateWithLifecycle()
 
@@ -102,6 +108,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel = listViewModel,
                                         onOpenList = { screen = Screen.ListDetail(it) }
                                     )
+                                    Screen.Journal -> JournalScreen(viewModel = journalViewModel)
                                     else -> Unit
                                 }
                             }
@@ -115,7 +122,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun RootTabs(current: Screen, onSelect: (Screen) -> Unit) {
-    val tabs = listOf("Inbox" to Screen.Inbox, "Lists" to Screen.Lists)
+    val tabs = listOf("Inbox" to Screen.Inbox, "Lists" to Screen.Lists, "Journal" to Screen.Journal)
     val selectedIndex = tabs.indexOfFirst { it.second == current }.coerceAtLeast(0)
     TabRow(selectedTabIndex = selectedIndex) {
         tabs.forEachIndexed { index, (label, target) ->

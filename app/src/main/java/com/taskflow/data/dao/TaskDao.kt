@@ -33,6 +33,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE listId = :listId ORDER BY createdAt DESC")
     fun getTasksForList(listId: Long): Flow<List<Task>>
 
+    @Query("SELECT * FROM tasks WHERE isCompleted = 1 ORDER BY completedAt DESC")
+    fun getCompletedTasks(): Flow<List<Task>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTaskTagCrossRef(crossRef: TaskTagCrossRef)
 

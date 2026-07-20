@@ -12,8 +12,8 @@ import com.taskflow.data.entity.TaskTagCrossRef
 
 @Database(
     entities = [Task::class, TaskList::class, Tag::class, TaskTagCrossRef::class],
-    version = 1,
-    exportSchema = true,
+    version = 2,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao

@@ -18,7 +18,12 @@ object DatabaseProvider {
                 context.applicationContext,
                 AppDatabase::class.java,
                 AppDatabase.DATABASE_NAME
-            ).build().also { instance = it }
+            )
+                // Dev-stage only: wipes local data on a version bump instead of crashing
+                // when no Migration is defined. Remove this and write real Migrations
+                // before this app has real user data to preserve.
+                .fallbackToDestructiveMigration()
+                .build().also { instance = it }
         }
     }
 }
