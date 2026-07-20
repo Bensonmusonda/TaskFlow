@@ -2,6 +2,7 @@ package com.taskflow.data.repository
 
 import com.taskflow.data.dao.TaskDao
 import com.taskflow.data.entity.Task
+import com.taskflow.data.entity.TaskTagCrossRef
 import com.taskflow.data.entity.TaskWithTags
 import kotlinx.coroutines.flow.Flow
 
@@ -13,9 +14,17 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     fun getCompletedTasks(): Flow<List<Task>> = taskDao.getCompletedTasks()
 
+    fun getTasksByTag(tagId: Long): Flow<List<Task>> = taskDao.getTasksByTag(tagId)
+
     suspend fun getTaskById(taskId: Long): Task? = taskDao.getTaskById(taskId)
 
     suspend fun getTaskWithTags(taskId: Long): TaskWithTags? = taskDao.getTaskWithTags(taskId)
+
+    suspend fun attachTag(taskId: Long, tagId: Long) =
+        taskDao.insertTaskTagCrossRef(TaskTagCrossRef(taskId = taskId, tagId = tagId))
+
+    suspend fun detachTag(taskId: Long, tagId: Long) =
+        taskDao.deleteTaskTagCrossRef(taskId, tagId)
 
     suspend fun insertTask(task: Task): Long = taskDao.insertTask(task)
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -19,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +30,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,22 +44,27 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 // Adjust this import to match whatever your project's default theme is named —
 // check ui/theme/Theme.kt if unsure.
 import com.taskflow.ui.theme.TaskFlowTheme
+import com.taskflow.data.entity.Tag
 import com.taskflow.data.entity.Task
 import com.taskflow.data.entity.TaskList
 import com.taskflow.ui.components.EditTaskDialog
+import com.taskflow.ui.components.TagPickerDialog
 import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
 import com.taskflow.ui.screens.ListsScreen
+import com.taskflow.ui.screens.TagsScreen
 import com.taskflow.ui.viewmodel.InboxViewModel
 import com.taskflow.ui.viewmodel.JournalViewModel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 import com.taskflow.ui.viewmodel.ListViewModel
+import com.taskflow.ui.viewmodel.TagViewModel
 
 // Placeholder routing — this becomes the real tab-nav shell (tracker section 10) later.
 private sealed class Screen {
     object Inbox : Screen()
     object Lists : Screen()
     object Journal : Screen()
+    object Tags : Screen()
     data class ListDetail(val list: TaskList) : Screen()
 }
 
@@ -71,13 +79,16 @@ class MainActivity : ComponentActivity() {
                     var screen by remember { mutableStateOf<Screen>(Screen.Inbox) }
 
                     val inboxViewModel: InboxViewModel = viewModel(
-                        factory = InboxViewModel.provideFactory(app.taskRepository)
+                        factory = InboxViewModel.provideFactory(app.taskRepository, app.tagRepository)
                     )
                     val listViewModel: ListViewModel = viewModel(
                         factory = ListViewModel.provideFactory(app.listRepository)
                     )
                     val journalViewModel: JournalViewModel = viewModel(
                         factory = JournalViewModel.provideFactory(app.taskRepository, app.tagRepository)
+                    )
+                    val tagViewModel: TagViewModel = viewModel(
+                        factory = TagViewModel.provideFactory(app.tagRepository)
                     )
                     val lists by listViewModel.lists.collectAsStateWithLifecycle()
 
@@ -86,7 +97,11 @@ class MainActivity : ComponentActivity() {
                             is Screen.ListDetail -> {
                                 val listDetailViewModel: ListDetailViewModel = viewModel(
                                     key = "list_detail_${current.list.id}",
-                                    factory = ListDetailViewModel.provideFactory(app.taskRepository, current.list.id)
+                                    factory = ListDetailViewModel.provideFactory(
+                                        app.taskRepository,
+                                        app.tagRepository,
+                                        current.list.id
+                                    )
                                 )
                                 ListDetailScreen(
                                     listName = current.list.name,
@@ -109,6 +124,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenList = { screen = Screen.ListDetail(it) }
                                     )
                                     Screen.Journal -> JournalScreen(viewModel = journalViewModel)
+                                    Screen.Tags -> TagsScreen(viewModel = tagViewModel)
                                     else -> Unit
                                 }
                             }
@@ -122,7 +138,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun RootTabs(current: Screen, onSelect: (Screen) -> Unit) {
-    val tabs = listOf("Inbox" to Screen.Inbox, "Lists" to Screen.Lists, "Journal" to Screen.Journal)
+    val tabs = listOf(
+        "Inbox" to Screen.Inbox,
+        "Lists" to Screen.Lists,
+        "Journal" to Screen.Journal,
+        "Tags" to Screen.Tags
+    )
     val selectedIndex = tabs.indexOfFirst { it.second == current }.coerceAtLeast(0)
     TabRow(selectedTabIndex = selectedIndex) {
         tabs.forEachIndexed { index, (label, target) ->
@@ -138,8 +159,13 @@ private fun RootTabs(current: Screen, onSelect: (Screen) -> Unit) {
 @Composable
 fun InboxScreen(viewModel: InboxViewModel, lists: List<TaskList>) {
     val tasks by viewModel.inboxTasks.collectAsStateWithLifecycle()
+    val allTags by viewModel.allTags.collectAsStateWithLifecycle()
+    val selectedTagId by viewModel.selectedTagIdFlow.collectAsStateWithLifecycle()
+
     var newTaskTitle by remember { mutableStateOf("") }
     var editingTask by remember { mutableStateOf<Task?>(null) }
+    var taggingTask by remember { mutableStateOf<Task?>(null) }
+    var taggingTaskCurrentTags by remember { mutableStateOf<List<Tag>>(emptyList()) }
 
     editingTask?.let { task ->
         EditTaskDialog(
@@ -149,6 +175,28 @@ fun InboxScreen(viewModel: InboxViewModel, lists: List<TaskList>) {
                 editingTask = null
             },
             onDismiss = { editingTask = null }
+        )
+    }
+
+    taggingTask?.let { task ->
+        LaunchedEffect(task.id) {
+            taggingTaskCurrentTags = viewModel.getTagsForTask(task.id)
+        }
+        val attachedIds = taggingTaskCurrentTags.map { it.id }.toSet()
+        TagPickerDialog(
+            allTags = allTags,
+            attachedTagIds = attachedIds,
+            onToggleTag = { tag ->
+                val currentlyAttached = tag.id in attachedIds
+                viewModel.toggleTagOnTask(task.id, tag, currentlyAttached)
+                taggingTaskCurrentTags = if (currentlyAttached) {
+                    taggingTaskCurrentTags.filterNot { it.id == tag.id }
+                } else {
+                    taggingTaskCurrentTags + tag
+                }
+            },
+            onCreateAndAttachTag = { name -> viewModel.createAndAttachTag(task.id, name) },
+            onDismiss = { taggingTask = null }
         )
     }
 
@@ -177,6 +225,25 @@ fun InboxScreen(viewModel: InboxViewModel, lists: List<TaskList>) {
             }
         }
 
+        if (allTags.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                item {
+                    FilterChip(
+                        selected = selectedTagId == null,
+                        onClick = { viewModel.setTagFilter(null) },
+                        label = { Text("All") }
+                    )
+                }
+                items(allTags, key = { it.id }) { tag ->
+                    FilterChip(
+                        selected = selectedTagId == tag.id,
+                        onClick = { viewModel.setTagFilter(tag.id) },
+                        label = { Text("#${tag.name}") }
+                    )
+                }
+            }
+        }
+
         Text("Inbox (${tasks.size}):")
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -187,7 +254,8 @@ fun InboxScreen(viewModel: InboxViewModel, lists: List<TaskList>) {
                     onToggleCompleted = { viewModel.toggleCompleted(task) },
                     onDelete = { viewModel.deleteTask(task) },
                     onMoveToList = { listId -> viewModel.moveTaskToList(task, listId) },
-                    onEdit = { editingTask = task }
+                    onEdit = { editingTask = task },
+                    onTags = { taggingTask = task }
                 )
             }
         }
@@ -201,7 +269,8 @@ private fun InboxTaskRow(
     onToggleCompleted: () -> Unit,
     onDelete: () -> Unit,
     onMoveToList: (Long) -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onTags: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -217,6 +286,10 @@ private fun InboxTaskRow(
                 .clickable(onClick = onEdit),
             textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
         )
+
+        Button(onClick = onTags) {
+            Text("Tags")
+        }
 
         // "Move to list" — only meaningful once at least one list exists.
         if (lists.isNotEmpty()) {

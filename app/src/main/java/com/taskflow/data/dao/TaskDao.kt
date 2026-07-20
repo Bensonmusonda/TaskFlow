@@ -39,6 +39,19 @@ interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTaskTagCrossRef(crossRef: TaskTagCrossRef)
 
+    @Query("DELETE FROM task_tags WHERE taskId = :taskId AND tagId = :tagId")
+    suspend fun deleteTaskTagCrossRef(taskId: Long, tagId: Long)
+
+    @Query(
+        """
+        SELECT tasks.* FROM tasks
+        INNER JOIN task_tags ON tasks.id = task_tags.taskId
+        WHERE task_tags.tagId = :tagId
+        ORDER BY tasks.createdAt DESC
+        """
+    )
+    fun getTasksByTag(tagId: Long): Flow<List<Task>>
+
     /**
      * Journaling Mode / "Retrospective Entry": persists a task that is already done,
      * bypassing the normal open -> complete flow, plus its tag associations, in one
