@@ -49,10 +49,12 @@ import com.taskflow.data.entity.Task
 import com.taskflow.data.entity.TaskList
 import com.taskflow.ui.components.EditTaskDialog
 import com.taskflow.ui.components.TagPickerDialog
+import com.taskflow.ui.screens.AnalyticsScreen
 import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
 import com.taskflow.ui.screens.ListsScreen
 import com.taskflow.ui.screens.TagsScreen
+import com.taskflow.ui.viewmodel.AnalyticsViewModel
 import com.taskflow.ui.viewmodel.InboxViewModel
 import com.taskflow.ui.viewmodel.JournalViewModel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
@@ -65,6 +67,7 @@ private sealed class Screen {
     object Lists : Screen()
     object Journal : Screen()
     object Tags : Screen()
+    object Analytics : Screen()
     data class ListDetail(val list: TaskList) : Screen()
 }
 
@@ -89,6 +92,9 @@ class MainActivity : ComponentActivity() {
                     )
                     val tagViewModel: TagViewModel = viewModel(
                         factory = TagViewModel.provideFactory(app.tagRepository)
+                    )
+                    val analyticsViewModel: AnalyticsViewModel = viewModel(
+                        factory = AnalyticsViewModel.provideFactory(app.taskRepository)
                     )
                     val lists by listViewModel.lists.collectAsStateWithLifecycle()
 
@@ -125,6 +131,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                     Screen.Journal -> JournalScreen(viewModel = journalViewModel)
                                     Screen.Tags -> TagsScreen(viewModel = tagViewModel)
+                                    Screen.Analytics -> AnalyticsScreen(viewModel = analyticsViewModel)
                                     else -> Unit
                                 }
                             }
@@ -142,7 +149,8 @@ private fun RootTabs(current: Screen, onSelect: (Screen) -> Unit) {
         "Inbox" to Screen.Inbox,
         "Lists" to Screen.Lists,
         "Journal" to Screen.Journal,
-        "Tags" to Screen.Tags
+        "Tags" to Screen.Tags,
+        "Analytics" to Screen.Analytics
     )
     val selectedIndex = tabs.indexOfFirst { it.second == current }.coerceAtLeast(0)
     TabRow(selectedTabIndex = selectedIndex) {

@@ -78,4 +78,13 @@ interface TaskDao {
     @Transaction
     @Query("SELECT * FROM tasks WHERE isCompleted = 1 AND completedAt BETWEEN :startMillis AND :endMillis")
     suspend fun getCompletedTasksWithTagsInRange(startMillis: Long, endMillis: Long): List<TaskWithTags>
+
+    /**
+     * Reactive version for the Analytics heatmap — recomposes automatically when tasks
+     * complete/uncomplete or their tag associations change (Room tracks the junction
+     * table too, since it's part of the @Transaction query).
+     */
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE isCompleted = 1 AND completedAt IS NOT NULL")
+    fun observeCompletedTasksWithTags(): Flow<List<TaskWithTags>>
 }

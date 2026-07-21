@@ -52,4 +52,6 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     suspend fun getCompletedTasksWithTagsInRange(startMillis: Long, endMillis: Long): List<TaskWithTags> =
         taskDao.getCompletedTasksWithTagsInRange(startMillis, endMillis)
+
+    fun observeCompletedTasksWithTags(): Flow<List<TaskWithTags>> = taskDao.observeCompletedTasksWithTags()
 }
