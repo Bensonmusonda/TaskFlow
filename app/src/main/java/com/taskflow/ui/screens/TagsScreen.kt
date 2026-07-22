@@ -8,14 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,49 +37,62 @@ fun TagsScreen(viewModel: TagViewModel) {
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     var newTagName by remember { mutableStateOf("") }
 
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Growth Domains", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Tags you attach to tasks — used to track which areas you're active in.",
-                style = MaterialTheme.typography.bodySmall
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Growth Domains", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Tags you attach to tasks — used to track which areas you're active in.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = newTagName,
+                onValueChange = { newTagName = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("e.g. Coding, 3DModeling") }
             )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = newTagName,
-                    onValueChange = { newTagName = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("e.g. Coding, 3DModeling") }
-                )
-                Button(
-                    onClick = {
-                        viewModel.addTag(newTagName)
-                        newTagName = ""
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Text("Add")
-                }
+            Button(
+                onClick = {
+                    viewModel.addTag(newTagName)
+                    newTagName = ""
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Add")
             }
+        }
 
-            Text("Your tags (${tags.size}):")
+        Text("Your tags (${tags.size}):")
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(tags, key = { it.id }) { tag ->
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(tags, key = { it.id }) { tag ->
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("#${tag.name}")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Sell,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(tag.name)
+                        }
                         IconButton(onClick = { viewModel.deleteTag(tag) }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Delete tag")
                         }

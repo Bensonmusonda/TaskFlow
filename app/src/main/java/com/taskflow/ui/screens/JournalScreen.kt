@@ -7,11 +7,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,66 +44,64 @@ fun JournalScreen(viewModel: JournalViewModel) {
     var description by remember { mutableStateOf("") }
     var tagsCsv by remember { mutableStateOf("") }
 
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Retrospective entry", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Log something you already did — it's saved as complete immediately.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("What did you do?") }
+        )
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Details (optional)") }
+        )
+        OutlinedTextField(
+            value = tagsCsv,
+            onValueChange = { tagsCsv = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Growth domains, comma separated (e.g. Coding, 3DModeling)") }
+        )
+
+        Button(
+            onClick = {
+                viewModel.addRetrospectiveEntry(
+                    title = title,
+                    description = description.ifBlank { null },
+                    tagNamesCsv = tagsCsv
+                )
+                title = ""
+                description = ""
+                tagsCsv = ""
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = title.isNotBlank()
         ) {
-            Text("Retrospective entry", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Log something you already did — it's saved as complete immediately.",
-                style = MaterialTheme.typography.bodySmall
-            )
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+            Text("Log entry")
+        }
 
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("What did you do?") }
-            )
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Details (optional)") }
-            )
-            OutlinedTextField(
-                value = tagsCsv,
-                onValueChange = { tagsCsv = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("Growth domains, comma separated (e.g. Coding, 3DModeling)") }
-            )
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Button(
-                onClick = {
-                    viewModel.addRetrospectiveEntry(
-                        title = title,
-                        description = description.ifBlank { null },
-                        tagNamesCsv = tagsCsv
-                    )
-                    title = ""
-                    description = ""
-                    tagsCsv = ""
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = title.isNotBlank()
-            ) {
-                Text("Log entry")
-            }
+        Text("History (${entries.size}):", style = MaterialTheme.typography.titleMedium)
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            Text("History (${entries.size}):", style = MaterialTheme.typography.titleMedium)
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(entries, key = { it.id }) { entry ->
-                    JournalEntryRow(entry)
-                }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(entries, key = { it.id }) { entry ->
+                JournalEntryRow(entry)
             }
         }
     }
@@ -106,11 +109,17 @@ fun JournalScreen(viewModel: JournalViewModel) {
 
 @Composable
 private fun JournalEntryRow(entry: Task) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(entry.title, style = MaterialTheme.typography.bodyLarge)
-        val completedLabel = entry.completedAt?.let {
-            completedAtFormatter.format(Instant.ofEpochMilli(it))
-        } ?: "—"
-        Text(completedLabel, style = MaterialTheme.typography.bodySmall)
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(entry.title, style = MaterialTheme.typography.bodyLarge)
+            val completedLabel = entry.completedAt?.let {
+                completedAtFormatter.format(Instant.ofEpochMilli(it))
+            } ?: "—"
+            Text(completedLabel, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,40 +41,37 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         dailyActivity.values.sumOf { it.taskCount }
     }
 
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Activity Heatmap", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Score = tasks completed + unique Growth Domains touched, per day.",
-                style = MaterialTheme.typography.bodySmall
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Activity Heatmap", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Score = tasks completed + unique Growth Domains touched, per day.",
+            style = MaterialTheme.typography.bodySmall
+        )
 
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(weeks) { week ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        week.forEach { date ->
-                            DayCell(
-                                activity = dailyActivity[date],
-                                isFuture = date.isAfter(today)
-                            )
-                        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            items(weeks) { week ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    week.forEach { date ->
+                        DayCell(
+                            activity = dailyActivity[date],
+                            isFuture = date.isAfter(today)
+                        )
                     }
                 }
             }
-
-            Legend()
-
-            Text(
-                "$totalTasksThisPeriod tasks completed in the last $WEEKS_SHOWN weeks.",
-                style = MaterialTheme.typography.bodySmall
-            )
         }
+
+        Legend()
+
+        Text(
+            "$totalTasksThisPeriod tasks completed in the last $WEEKS_SHOWN weeks.",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 

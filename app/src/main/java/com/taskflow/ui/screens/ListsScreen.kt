@@ -13,13 +13,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +49,8 @@ private val listColorPalette = listOf(
     "#3B5488"  // Muted blue
 )
 
+/** "All Lists" tab content — this screen has no Scaffold of its own; it renders inside
+ *  ListsSection's tab area in MainActivity, which owns the surrounding insets/padding. */
 @Composable
 fun ListsScreen(
     viewModel: ListViewModel,
@@ -54,51 +60,56 @@ fun ListsScreen(
     var newListName by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(listColorPalette.first()) }
 
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("New list")
+        OutlinedTextField(
+            value = newListName,
+            onValueChange = { newListName = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("List name") }
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listColorPalette.forEach { hex ->
+                ColorSwatch(
+                    hex = hex,
+                    onClick = { selectedColor = hex }
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                viewModel.addList(newListName, selectedColor)
+                newListName = ""
+            },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("New list")
-            OutlinedTextField(
-                value = newListName,
-                onValueChange = { newListName = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("List name") }
-            )
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+            Text("Create list")
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listColorPalette.forEach { hex ->
-                    ColorSwatch(
-                        hex = hex,
-                        onClick = { selectedColor = hex }
-                    )
-                }
-            }
+        Text("Your lists (${lists.size}):")
 
-            Button(
-                onClick = {
-                    viewModel.addList(newListName, selectedColor)
-                    newListName = ""
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Create list")
-            }
-
-            Text("Your lists (${lists.size}):")
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(lists, key = { it.id }) { list ->
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(lists, key = { it.id }) { list ->
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenList(list) }
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onOpenList(list) }
-                            .padding(vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {

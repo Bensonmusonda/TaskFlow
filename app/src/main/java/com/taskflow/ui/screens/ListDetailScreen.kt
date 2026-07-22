@@ -10,19 +10,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,12 +41,15 @@ import com.taskflow.ui.components.EditTaskDialog
 import com.taskflow.ui.components.TagPickerDialog
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Body content for a single list's tasks. No Scaffold/TopAppBar/back button of its own —
+ * this renders inside a tab in the Lists section (see ListsSection in MainActivity),
+ * where the tab strip itself handles switching away from this list.
+ */
 @Composable
 fun ListDetailScreen(
     listName: String,
-    viewModel: ListDetailViewModel,
-    onBack: () -> Unit
+    viewModel: ListDetailViewModel
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val allTags by viewModel.allTags.collectAsStateWithLifecycle()
@@ -89,73 +93,61 @@ fun ListDetailScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(listName) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = newTaskTitle,
+                onValueChange = { newTaskTitle = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("New task") }
             )
+            Button(
+                onClick = {
+                    viewModel.addTask(newTaskTitle)
+                    newTaskTitle = ""
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text("Add")
+            }
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = newTaskTitle,
-                    onValueChange = { newTaskTitle = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("New task") }
-                )
-                Button(
-                    onClick = {
-                        viewModel.addTask(newTaskTitle)
-                        newTaskTitle = ""
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Text("Add")
-                }
-            }
 
-            if (allTags.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    item {
-                        FilterChip(
-                            selected = selectedTagId == null,
-                            onClick = { viewModel.setTagFilter(null) },
-                            label = { Text("All") }
-                        )
-                    }
-                    items(allTags, key = { it.id }) { tag ->
-                        FilterChip(
-                            selected = selectedTagId == tag.id,
-                            onClick = { viewModel.setTagFilter(tag.id) },
-                            label = { Text("#${tag.name}") }
-                        )
-                    }
-                }
-            }
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(tasks, key = { it.id }) { task ->
-                    TaskRow(
-                        task = task,
-                        onToggleCompleted = { viewModel.toggleCompleted(task) },
-                        onDelete = { viewModel.deleteTask(task) },
-                        onEdit = { editingTask = task },
-                        onTags = { taggingTask = task }
+        if (allTags.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                item {
+                    FilterChip(
+                        selected = selectedTagId == null,
+                        onClick = { viewModel.setTagFilter(null) },
+                        label = { Text("All") }
                     )
                 }
+                items(allTags, key = { it.id }) { tag ->
+                    FilterChip(
+                        selected = selectedTagId == tag.id,
+                        onClick = { viewModel.setTagFilter(tag.id) },
+                        label = { Text("#${tag.name}") }
+                    )
+                }
+            }
+        }
+
+        Text("${tasks.size} tasks", style = MaterialTheme.typography.bodySmall)
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(tasks, key = { it.id }) { task ->
+                TaskRow(
+                    task = task,
+                    onToggleCompleted = { viewModel.toggleCompleted(task) },
+                    onDelete = { viewModel.deleteTask(task) },
+                    onEdit = { editingTask = task },
+                    onTags = { taggingTask = task }
+                )
             }
         }
     }
@@ -169,23 +161,31 @@ private fun TaskRow(
     onEdit: () -> Unit,
     onTags: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleCompleted() })
-        Text(
-            text = task.title,
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .clickable(onClick = onEdit),
-            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
-        )
-        Button(onClick = onTags) {
-            Text("Tags")
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = "Delete task")
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleCompleted() })
+            Text(
+                text = task.title,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onEdit),
+                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
+            )
+            IconButton(onClick = onTags) {
+                Icon(Icons.Filled.Label, contentDescription = "Tags")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete task")
+            }
         }
     }
 }
