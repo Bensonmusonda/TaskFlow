@@ -197,7 +197,15 @@ private fun ListsSection(
             (openTabs.indexOfFirst { it.id == selectedTabId } + 1).coerceAtLeast(0)
         }
 
-        ScrollableTabRow(selectedTabIndex = selectedIndex, edgePadding = 12.dp) {
+        ScrollableTabRow(
+            selectedTabIndex = selectedIndex,
+            edgePadding = 12.dp,
+            // The default indicator indexes into tab positions measured from the previous
+            // layout pass; when a tab is added and selected in the same state update, that
+            // list is briefly one short and it crashes (IndexOutOfBoundsException in
+            // TabRowKt$ScrollableTabRow). Dropping the indicator avoids reading that list at all.
+            indicator = {}
+        ) {
             Tab(
                 selected = selectedTabId == null,
                 onClick = { selectedTabId = null },
