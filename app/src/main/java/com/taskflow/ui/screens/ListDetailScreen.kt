@@ -39,6 +39,7 @@ import com.taskflow.data.entity.Tag
 import com.taskflow.data.entity.Task
 import com.taskflow.ui.components.EditTaskDialog
 import com.taskflow.ui.components.TagPickerDialog
+import com.taskflow.ui.components.TaskDueLabel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 
 /**
@@ -63,8 +64,8 @@ fun ListDetailScreen(
     editingTask?.let { task ->
         EditTaskDialog(
             task = task,
-            onConfirm = { title, description ->
-                viewModel.updateTaskDetails(task, title, description)
+            onConfirm = { title, description, dueDate ->
+                viewModel.updateTaskDetails(task, title, description, dueDate)
                 editingTask = null
             },
             onDismiss = { editingTask = null }
@@ -173,13 +174,17 @@ private fun TaskRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleCompleted() })
-            Text(
-                text = task.title,
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable(onClick = onEdit),
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
-            )
+                    .clickable(onClick = onEdit)
+            ) {
+                Text(
+                    text = task.title,
+                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
+                )
+                TaskDueLabel(dueDate = task.dueDate, isCompleted = task.isCompleted)
+            }
             IconButton(onClick = onTags) {
                 Icon(Icons.Filled.Label, contentDescription = "Tags")
             }

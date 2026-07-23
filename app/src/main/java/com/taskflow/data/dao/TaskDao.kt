@@ -87,4 +87,8 @@ interface TaskDao {
     @Transaction
     @Query("SELECT * FROM tasks WHERE isCompleted = 1 AND completedAt IS NOT NULL")
     fun observeCompletedTasksWithTags(): Flow<List<TaskWithTags>>
+
+    /** Backs alarm rescheduling after a device reboot (AlarmManager alarms don't survive it). */
+    @Query("SELECT * FROM tasks WHERE isCompleted = 0 AND dueDate IS NOT NULL AND dueDate > :nowMillis")
+    suspend fun getTasksWithFutureDueDate(nowMillis: Long): List<Task>
 }

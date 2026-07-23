@@ -5,6 +5,8 @@ import com.taskflow.data.DatabaseProvider
 import com.taskflow.data.repository.ListRepository
 import com.taskflow.data.repository.TagRepository
 import com.taskflow.data.repository.TaskRepository
+import com.taskflow.notifications.AlarmScheduler
+import com.taskflow.notifications.NotificationHelper
 
 /**
  * Holds the single AppDatabase instance and the repositories built on top of it.
@@ -13,9 +15,20 @@ import com.taskflow.data.repository.TaskRepository
  */
 class TaskFlowApplication : Application() {
 
-    private val database by lazy { DatabaseProvider.getDatabase(this) }
+    override fun onCreate() {
+        super.onCreate()
+        NotificationHelper.createNotificationChannel(this)
+    }
 
-    val taskRepository by lazy { TaskRepository(database.taskDao()) }
+    private val database by lazy { DatabaseProvider.getDatabase(this) }
+    private val alarmScheduler by lazy { AlarmScheduler(this) }
+
+    val taskRepository by lazy { TaskRepository(database.taskDao(), alarmScheduler) }
     val listRepository by lazy { ListRepository(database.listDao()) }
     val tagRepository by lazy { TagRepository(database.tagDao()) }
+
+    /** Re-arms alarms for every incomplete task with a future due date — called after boot. */
+    suspend fun rescheduleAllPendingReminders() {
+        taskRepository.getTasksWithUpcomingReminders().forEach { alarmScheduler.schedule(it) }
+    }
 }

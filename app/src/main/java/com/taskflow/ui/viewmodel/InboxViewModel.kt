@@ -68,10 +68,10 @@ class InboxViewModel(
         }
     }
 
-    fun updateTaskDetails(task: Task, title: String, description: String?) {
+    fun updateTaskDetails(task: Task, title: String, description: String?, dueDate: Long?) {
         if (title.isBlank()) return
         viewModelScope.launch {
-            repository.updateTask(task.copy(title = title.trim(), description = description))
+            repository.updateTask(task.copy(title = title.trim(), description = description, dueDate = dueDate))
         }
     }
 

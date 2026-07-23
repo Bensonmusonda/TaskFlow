@@ -1,8 +1,13 @@
 package com.taskflow
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +72,7 @@ import com.taskflow.data.repository.TagRepository
 import com.taskflow.data.repository.TaskRepository
 import com.taskflow.ui.components.EditTaskDialog
 import com.taskflow.ui.components.TagPickerDialog
+import com.taskflow.ui.components.TaskDueLabel
 import com.taskflow.ui.screens.AnalyticsScreen
 import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
@@ -99,8 +105,20 @@ private val navItems = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op either way */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
         val app = application as TaskFlowApplication
 
         setContent {
@@ -271,8 +289,8 @@ fun InboxScreen(viewModel: InboxViewModel, lists: List<TaskList>) {
     editingTask?.let { task ->
         EditTaskDialog(
             task = task,
-            onConfirm = { title, description ->
-                viewModel.updateTaskDetails(task, title, description)
+            onConfirm = { title, description, dueDate ->
+                viewModel.updateTaskDetails(task, title, description, dueDate)
                 editingTask = null
             },
             onDismiss = { editingTask = null }
@@ -387,13 +405,17 @@ private fun InboxTaskRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggleCompleted() })
-            Text(
-                text = task.title,
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable(onClick = onEdit),
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
-            )
+                    .clickable(onClick = onEdit)
+            ) {
+                Text(
+                    text = task.title,
+                    textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
+                )
+                TaskDueLabel(dueDate = task.dueDate, isCompleted = task.isCompleted)
+            }
 
             IconButton(onClick = onTags) {
                 Icon(Icons.Filled.Label, contentDescription = "Tags")
