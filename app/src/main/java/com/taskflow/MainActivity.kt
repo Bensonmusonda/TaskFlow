@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,12 +78,15 @@ import com.taskflow.ui.screens.AnalyticsScreen
 import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
 import com.taskflow.ui.screens.ListsScreen
+import com.taskflow.ui.screens.NoteEditorScreen
+import com.taskflow.ui.screens.NotesScreen
 import com.taskflow.ui.screens.TagsScreen
 import com.taskflow.ui.viewmodel.AnalyticsViewModel
 import com.taskflow.ui.viewmodel.InboxViewModel
 import com.taskflow.ui.viewmodel.JournalViewModel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 import com.taskflow.ui.viewmodel.ListViewModel
+import com.taskflow.ui.viewmodel.NoteViewModel
 import com.taskflow.ui.viewmodel.TagViewModel
 
 /** Top-level destinations shown in the bottom NavigationBar. */
@@ -92,6 +96,7 @@ private sealed class Screen {
     object Journal : Screen()
     object Tags : Screen()
     object Analytics : Screen()
+    object Notes : Screen()
 }
 
 private data class NavItem(val screen: Screen, val icon: ImageVector, val label: String)
@@ -101,7 +106,8 @@ private val navItems = listOf(
     NavItem(Screen.Lists, Icons.Filled.List, "Lists"),
     NavItem(Screen.Journal, Icons.AutoMirrored.Filled.MenuBook, "Journal"),
     NavItem(Screen.Tags, Icons.Filled.Sell, "Tags"),
-    NavItem(Screen.Analytics, Icons.Filled.BarChart, "Analytics")
+    NavItem(Screen.Analytics, Icons.Filled.BarChart, "Analytics"),
+    NavItem(Screen.Notes, Icons.Filled.Notes, "Notes")
 )
 
 class MainActivity : ComponentActivity() {
@@ -141,6 +147,9 @@ class MainActivity : ComponentActivity() {
                     val analyticsViewModel: AnalyticsViewModel = viewModel(
                         factory = AnalyticsViewModel.provideFactory(app.taskRepository)
                     )
+                    val noteViewModel: NoteViewModel = viewModel(
+                        factory = NoteViewModel.provideFactory(app.noteRepository)
+                    )
                     val lists by listViewModel.lists.collectAsStateWithLifecycle()
 
                     Scaffold(
@@ -172,6 +181,7 @@ class MainActivity : ComponentActivity() {
                                 Screen.Journal -> JournalScreen(viewModel = journalViewModel)
                                 Screen.Tags -> TagsScreen(viewModel = tagViewModel)
                                 Screen.Analytics -> AnalyticsScreen(viewModel = analyticsViewModel)
+                                Screen.Notes -> NotesSection(viewModel = noteViewModel)
                             }
                         }
                     }
@@ -272,6 +282,34 @@ private fun ListsSection(
                 viewModel = listDetailViewModel
             )
         }
+    }
+}
+
+/**
+ * Simple push/pop between the notes list and a single open editor — unlike Lists, notes
+ * are normally opened one at a time rather than juggled between several, so this skips
+ * the tab-strip complexity and just keeps a selected note id.
+ */
+@Composable
+private fun NotesSection(viewModel: NoteViewModel) {
+    val notes by viewModel.notes.collectAsStateWithLifecycle()
+    var selectedNoteId by remember { mutableStateOf<Long?>(null) }
+
+    val selectedNote = notes.find { it.id == selectedNoteId }
+    if (selectedNote == null) {
+        NotesScreen(
+            viewModel = viewModel,
+            onCreateNote = {
+                viewModel.createNote(onCreated = { id -> selectedNoteId = id })
+            },
+            onOpenNote = { note -> selectedNoteId = note.id }
+        )
+    } else {
+        NoteEditorScreen(
+            note = selectedNote,
+            viewModel = viewModel,
+            onBack = { selectedNoteId = null }
+        )
     }
 }
 

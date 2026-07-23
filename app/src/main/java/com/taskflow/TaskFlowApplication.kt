@@ -3,6 +3,7 @@ package com.taskflow
 import android.app.Application
 import com.taskflow.data.DatabaseProvider
 import com.taskflow.data.repository.ListRepository
+import com.taskflow.data.repository.NoteRepository
 import com.taskflow.data.repository.TagRepository
 import com.taskflow.data.repository.TaskRepository
 import com.taskflow.notifications.AlarmScheduler
@@ -26,6 +27,7 @@ class TaskFlowApplication : Application() {
     val taskRepository by lazy { TaskRepository(database.taskDao(), alarmScheduler) }
     val listRepository by lazy { ListRepository(database.listDao()) }
     val tagRepository by lazy { TagRepository(database.tagDao()) }
+    val noteRepository by lazy { NoteRepository(database.noteDao()) }
 
     /** Re-arms alarms for every incomplete task with a future due date — called after boot. */
     suspend fun rescheduleAllPendingReminders() {
