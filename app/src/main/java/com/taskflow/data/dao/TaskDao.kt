@@ -91,4 +91,12 @@ interface TaskDao {
     /** Backs alarm rescheduling after a device reboot (AlarmManager alarms don't survive it). */
     @Query("SELECT * FROM tasks WHERE isCompleted = 0 AND dueDate IS NOT NULL AND dueDate > :nowMillis")
     suspend fun getTasksWithFutureDueDate(nowMillis: Long): List<Task>
+
+    /**
+     * Every task with a due date, any completion state, oldest-due first. Home's Upcoming/
+     * Today sections and the Calendar month grid all derive from this single reactive query
+     * rather than each having their own — cheap enough at personal-task volumes.
+     */
+    @Query("SELECT * FROM tasks WHERE dueDate IS NOT NULL ORDER BY dueDate ASC")
+    fun observeTasksWithDueDates(): Flow<List<Task>>
 }

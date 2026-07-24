@@ -86,4 +86,7 @@ class TaskRepository(
     /** Every incomplete task with a future due date — used to re-arm alarms after a reboot. */
     suspend fun getTasksWithUpcomingReminders(): List<Task> =
         taskDao.getTasksWithFutureDueDate(System.currentTimeMillis())
+
+    /** Backs Home's Upcoming/Today sections and the Calendar month grid. */
+    fun observeTasksWithDueDates(): Flow<List<Task>> = taskDao.observeTasksWithDueDates()
 }

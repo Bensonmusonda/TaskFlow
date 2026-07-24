@@ -1,13 +1,12 @@
 package com.taskflow
 
-import android.os.Bundle
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,22 +21,24 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Label
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +51,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,11 +63,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-// Adjust this import to match whatever your project's default theme is named —
-// check ui/theme/Theme.kt if unsure.
-import com.taskflow.ui.theme.TaskFlowTheme
 import com.taskflow.data.entity.Tag
 import com.taskflow.data.entity.Task
 import com.taskflow.data.entity.TaskList
@@ -74,40 +74,56 @@ import com.taskflow.data.repository.TaskRepository
 import com.taskflow.ui.components.EditTaskDialog
 import com.taskflow.ui.components.TagPickerDialog
 import com.taskflow.ui.components.TaskDueLabel
+import com.taskflow.ui.screens.AddTaskScreen
 import com.taskflow.ui.screens.AnalyticsScreen
+import com.taskflow.ui.screens.CalendarScreen
+import com.taskflow.ui.screens.HomeScreen
 import com.taskflow.ui.screens.JournalScreen
 import com.taskflow.ui.screens.ListDetailScreen
 import com.taskflow.ui.screens.ListsScreen
 import com.taskflow.ui.screens.NoteEditorScreen
 import com.taskflow.ui.screens.NotesScreen
-import com.taskflow.ui.screens.TagsScreen
+import com.taskflow.ui.screens.SettingsScreen
+import com.taskflow.ui.viewmodel.AddTaskViewModel
 import com.taskflow.ui.viewmodel.AnalyticsViewModel
+import com.taskflow.ui.viewmodel.CalendarViewModel
+import com.taskflow.ui.viewmodel.HomeViewModel
 import com.taskflow.ui.viewmodel.InboxViewModel
 import com.taskflow.ui.viewmodel.JournalViewModel
 import com.taskflow.ui.viewmodel.ListDetailViewModel
 import com.taskflow.ui.viewmodel.ListViewModel
 import com.taskflow.ui.viewmodel.NoteViewModel
 import com.taskflow.ui.viewmodel.TagViewModel
+// Adjust this import to match whatever your project's default theme is named —
+// check ui/theme/Theme.kt if unsure.
+import com.taskflow.ui.theme.TaskFlowTheme
 
-/** Top-level destinations shown in the bottom NavigationBar. */
+/** The 5 bottom-nav destinations. Lists/Journal/Add-task are reached as overlays instead —
+ *  see [Overlay] — since they're "drill in from Home" flows, not persistent tabs. */
 private sealed class Screen {
-    object Inbox : Screen()
-    object Lists : Screen()
-    object Journal : Screen()
-    object Tags : Screen()
+    object Home : Screen()
+    object Calendar : Screen()
     object Analytics : Screen()
     object Notes : Screen()
+    object Settings : Screen()
+}
+
+/** Full-screen destinations reached from Home (hamburger menu or preview-card buttons).
+ *  Rendered on top of the tab content, with the bottom nav hidden while active. */
+private sealed class Overlay {
+    object Lists : Overlay()
+    object Journal : Overlay()
+    object AddTask : Overlay()
 }
 
 private data class NavItem(val screen: Screen, val icon: ImageVector, val label: String)
 
 private val navItems = listOf(
-    NavItem(Screen.Inbox, Icons.Filled.Inbox, "Inbox"),
-    NavItem(Screen.Lists, Icons.Filled.List, "Lists"),
-    NavItem(Screen.Journal, Icons.AutoMirrored.Filled.MenuBook, "Journal"),
-    NavItem(Screen.Tags, Icons.Filled.Sell, "Tags"),
+    NavItem(Screen.Home, Icons.Filled.Home, "Home"),
+    NavItem(Screen.Calendar, Icons.Filled.CalendarMonth, "Calendar"),
     NavItem(Screen.Analytics, Icons.Filled.BarChart, "Analytics"),
-    NavItem(Screen.Notes, Icons.Filled.Notes, "Notes")
+    NavItem(Screen.Notes, Icons.Filled.Notes, "Notes"),
+    NavItem(Screen.Settings, Icons.Filled.Settings, "Settings")
 )
 
 class MainActivity : ComponentActivity() {
@@ -125,13 +141,24 @@ class MainActivity : ComponentActivity() {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+
         val app = application as TaskFlowApplication
 
         setContent {
             TaskFlowTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    var screen by remember { mutableStateOf<Screen>(Screen.Inbox) }
+                    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                    var overlay by remember { mutableStateOf<Overlay?>(null) }
 
+                    val homeViewModel: HomeViewModel = viewModel(
+                        factory = HomeViewModel.provideFactory(app.taskRepository)
+                    )
+                    val calendarViewModel: CalendarViewModel = viewModel(
+                        factory = CalendarViewModel.provideFactory(app.taskRepository)
+                    )
+                    val addTaskViewModel: AddTaskViewModel = viewModel(
+                        factory = AddTaskViewModel.provideFactory(app.taskRepository)
+                    )
                     val inboxViewModel: InboxViewModel = viewModel(
                         factory = InboxViewModel.provideFactory(app.taskRepository, app.tagRepository)
                     )
@@ -150,18 +177,20 @@ class MainActivity : ComponentActivity() {
                     val noteViewModel: NoteViewModel = viewModel(
                         factory = NoteViewModel.provideFactory(app.noteRepository)
                     )
-                    val lists by listViewModel.lists.collectAsStateWithLifecycle()
+                    val dailyActivity by analyticsViewModel.dailyActivity.collectAsStateWithLifecycle()
 
                     Scaffold(
                         bottomBar = {
-                            NavigationBar {
-                                navItems.forEach { item ->
-                                    NavigationBarItem(
-                                        selected = screen == item.screen,
-                                        onClick = { screen = item.screen },
-                                        icon = { Icon(item.icon, contentDescription = item.label) },
-                                        label = { Text(item.label) }
-                                    )
+                            if (overlay == null) {
+                                NavigationBar {
+                                    navItems.forEach { item ->
+                                        NavigationBarItem(
+                                            selected = screen == item.screen,
+                                            onClick = { screen = item.screen },
+                                            icon = { Icon(item.icon, contentDescription = item.label) },
+                                            label = { Text(item.label) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -171,17 +200,38 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(innerPadding)
                         ) {
-                            when (screen) {
-                                Screen.Inbox -> InboxScreen(viewModel = inboxViewModel, lists = lists)
-                                Screen.Lists -> ListsSection(
-                                    listViewModel = listViewModel,
-                                    taskRepository = app.taskRepository,
-                                    tagRepository = app.tagRepository
+                            when (overlay) {
+                                Overlay.Lists -> OverlayScaffold(title = "Lists", onBack = { overlay = null }) {
+                                    ListsSection(
+                                        inboxViewModel = inboxViewModel,
+                                        listViewModel = listViewModel,
+                                        taskRepository = app.taskRepository,
+                                        tagRepository = app.tagRepository
+                                    )
+                                }
+                                Overlay.Journal -> OverlayScaffold(title = "Journal", onBack = { overlay = null }) {
+                                    JournalScreen(viewModel = journalViewModel)
+                                }
+                                Overlay.AddTask -> AddTaskScreen(
+                                    viewModel = addTaskViewModel,
+                                    onBack = { overlay = null }
                                 )
-                                Screen.Journal -> JournalScreen(viewModel = journalViewModel)
-                                Screen.Tags -> TagsScreen(viewModel = tagViewModel)
-                                Screen.Analytics -> AnalyticsScreen(viewModel = analyticsViewModel)
-                                Screen.Notes -> NotesSection(viewModel = noteViewModel)
+                                null -> when (screen) {
+                                    Screen.Home -> HomeScreen(
+                                        homeViewModel = homeViewModel,
+                                        listViewModel = listViewModel,
+                                        journalViewModel = journalViewModel,
+                                        dailyActivity = dailyActivity,
+                                        onAddTask = { overlay = Overlay.AddTask },
+                                        onOpenLists = { overlay = Overlay.Lists },
+                                        onOpenJournal = { overlay = Overlay.Journal },
+                                        onOpenAnalytics = { screen = Screen.Analytics }
+                                    )
+                                    Screen.Calendar -> CalendarScreen(viewModel = calendarViewModel)
+                                    Screen.Analytics -> AnalyticsScreen(viewModel = analyticsViewModel)
+                                    Screen.Notes -> NotesSection(viewModel = noteViewModel)
+                                    Screen.Settings -> SettingsScreen(tagViewModel = tagViewModel)
+                                }
                             }
                         }
                     }
@@ -191,58 +241,85 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Browser-style tab strip for Lists: "All Lists" is a permanent first tab; opening a list
- * from ListsScreen adds it as a closeable tab next to it. Tab state is local to this
- * composable (lost on process death/rotation for now — fine for v1, revisit with
- * rememberSaveable + a custom Saver if that turns out to matter).
- */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OverlayScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(title, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            content()
+        }
+    }
+}
+
+/** What's selected inside the Lists overlay: the pinned Inbox tab, the pinned "All Lists"
+ *  tab, or one of the closeable per-list detail tabs. */
+private sealed class ListsTab {
+    object Inbox : ListsTab()
+    object AllLists : ListsTab()
+    data class Detail(val list: TaskList) : ListsTab()
+}
+
 @Composable
 private fun ListsSection(
+    inboxViewModel: InboxViewModel,
     listViewModel: ListViewModel,
     taskRepository: TaskRepository,
     tagRepository: TagRepository
 ) {
     val lists by listViewModel.lists.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableStateOf<ListsTab>(ListsTab.AllLists) }
     var openTabs by remember { mutableStateOf(listOf<TaskList>()) }
-    var selectedTabId by remember { mutableStateOf<Long?>(null) } // null = "All Lists"
 
-    // If a list gets deleted while its tab is open, drop the tab instead of pointing at nothing.
-    LaunchedEffect(lists) {
-        val validIds = lists.map { it.id }.toSet()
-        if (openTabs.any { it.id !in validIds }) {
-            openTabs = openTabs.filter { it.id in validIds }
-        }
-        if (selectedTabId != null && selectedTabId !in validIds) {
-            selectedTabId = null
-        }
+    val currentSelected = selectedTab
+    if (currentSelected is ListsTab.Detail && lists.none { it.id == currentSelected.list.id }) {
+        // The open list was deleted elsewhere — fall back rather than point at nothing.
+        selectedTab = ListsTab.AllLists
+    }
+    if (openTabs.any { openTab -> lists.none { it.id == openTab.id } }) {
+        openTabs = openTabs.filter { openTab -> lists.any { it.id == openTab.id } }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        val selectedIndex = if (selectedTabId == null) {
-            0
-        } else {
-            (openTabs.indexOfFirst { it.id == selectedTabId } + 1).coerceAtLeast(0)
-        }
+        val allTabs: List<ListsTab> = listOf(ListsTab.Inbox, ListsTab.AllLists) + openTabs.map { ListsTab.Detail(it) }
+        val selectedIndex = allTabs.indexOfFirst {
+            when (it) {
+                is ListsTab.Detail -> (selectedTab as? ListsTab.Detail)?.list?.id == it.list.id
+                else -> it == selectedTab
+            }
+        }.coerceAtLeast(0)
 
         ScrollableTabRow(
             selectedTabIndex = selectedIndex,
             edgePadding = 12.dp,
-            // The default indicator indexes into tab positions measured from the previous
-            // layout pass; when a tab is added and selected in the same state update, that
-            // list is briefly one short and it crashes (IndexOutOfBoundsException in
-            // TabRowKt$ScrollableTabRow). Dropping the indicator avoids reading that list at all.
+            // See note in a previous fix: the default indicator can index out of bounds
+            // when a tab is added and selected in the same state update.
             indicator = {}
         ) {
             Tab(
-                selected = selectedTabId == null,
-                onClick = { selectedTabId = null },
+                selected = selectedTab == ListsTab.Inbox,
+                onClick = { selectedTab = ListsTab.Inbox },
+                text = { Text("Inbox") }
+            )
+            Tab(
+                selected = selectedTab == ListsTab.AllLists,
+                onClick = { selectedTab = ListsTab.AllLists },
                 text = { Text("All Lists") }
             )
             openTabs.forEach { list ->
                 Tab(
-                    selected = selectedTabId == list.id,
-                    onClick = { selectedTabId = list.id },
+                    selected = (selectedTab as? ListsTab.Detail)?.list?.id == list.id,
+                    onClick = { selectedTab = ListsTab.Detail(list) },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(list.name)
@@ -254,7 +331,9 @@ private fun ListsSection(
                                     .size(16.dp)
                                     .clickable {
                                         openTabs = openTabs.filterNot { it.id == list.id }
-                                        if (selectedTabId == list.id) selectedTabId = null
+                                        if ((selectedTab as? ListsTab.Detail)?.list?.id == list.id) {
+                                            selectedTab = ListsTab.AllLists
+                                        }
                                     }
                             )
                         }
@@ -263,33 +342,27 @@ private fun ListsSection(
             }
         }
 
-        val currentList = openTabs.find { it.id == selectedTabId }
-        if (currentList == null) {
-            ListsScreen(
+        when (val tab = selectedTab) {
+            ListsTab.Inbox -> InboxScreen(viewModel = inboxViewModel, lists = lists)
+            ListsTab.AllLists -> ListsScreen(
                 viewModel = listViewModel,
                 onOpenList = { list ->
                     if (openTabs.none { it.id == list.id }) openTabs = openTabs + list
-                    selectedTabId = list.id
+                    selectedTab = ListsTab.Detail(list)
                 }
             )
-        } else {
-            val listDetailViewModel: ListDetailViewModel = viewModel(
-                key = "list_detail_${currentList.id}",
-                factory = ListDetailViewModel.provideFactory(taskRepository, tagRepository, currentList.id)
-            )
-            ListDetailScreen(
-                listName = currentList.name,
-                viewModel = listDetailViewModel
-            )
+            is ListsTab.Detail -> {
+                val listDetailViewModel: ListDetailViewModel = viewModel(
+                    key = "list_detail_${tab.list.id}",
+                    factory = ListDetailViewModel.provideFactory(taskRepository, tagRepository, tab.list.id)
+                )
+                ListDetailScreen(listName = tab.list.name, viewModel = listDetailViewModel)
+            }
         }
     }
 }
 
-/**
- * Simple push/pop between the notes list and a single open editor — unlike Lists, notes
- * are normally opened one at a time rather than juggled between several, so this skips
- * the tab-strip complexity and just keeps a selected note id.
- */
+/** Push/pop between the notes list and a single open editor. */
 @Composable
 private fun NotesSection(viewModel: NoteViewModel) {
     val notes by viewModel.notes.collectAsStateWithLifecycle()
@@ -299,9 +372,7 @@ private fun NotesSection(viewModel: NoteViewModel) {
     if (selectedNote == null) {
         NotesScreen(
             viewModel = viewModel,
-            onCreateNote = {
-                viewModel.createNote(onCreated = { id -> selectedNoteId = id })
-            },
+            onCreateNote = { viewModel.createNote(onCreated = { id -> selectedNoteId = id }) },
             onOpenNote = { note -> selectedNoteId = note.id }
         )
     } else {
@@ -459,7 +530,6 @@ private fun InboxTaskRow(
                 Icon(Icons.Filled.Label, contentDescription = "Tags")
             }
 
-            // "Move to list" — only meaningful once at least one list exists.
             if (lists.isNotEmpty()) {
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
