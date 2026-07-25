@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,8 +23,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.window.Popup
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.taskflow.data.entity.Task
 import com.taskflow.data.entity.TaskList
@@ -97,15 +101,27 @@ fun HomeScreen(
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Filled.Menu, contentDescription = "Menu")
                 }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Add task") },
-                        onClick = { menuExpanded = false; onAddTask() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Lists") },
-                        onClick = { menuExpanded = false; onOpenLists() }
-                    )
+                if (menuExpanded) {
+                    Popup(
+                        alignment = Alignment.TopEnd,
+                        offset = with(LocalDensity.current) { IntOffset(0, 48.dp.roundToPx()) },
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            // Translucent, not blurred — a real backdrop blur needs Android
+                            // 12+ compositing that's fragile to get right; this is the
+                            // reliable version of the "frosted glass" look.
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.width(150.dp)
+                        ) {
+                            Column {
+                                HamburgerMenuItem("Add task") { menuExpanded = false; onAddTask() }
+                                HamburgerMenuItem("Lists") { menuExpanded = false; onOpenLists() }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -164,13 +180,18 @@ fun HomeScreen(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
             ),
             trailingIcon = {
-                IconButton(onClick = {
-                    if (journalDraft.isNotBlank()) {
-                        journalViewModel.addRetrospectiveEntry(journalDraft, null, "")
-                        journalDraft = ""
+                Box(
+                    modifier = Modifier.fillMaxHeight(),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    IconButton(onClick = {
+                        if (journalDraft.isNotBlank()) {
+                            journalViewModel.addRetrospectiveEntry(journalDraft, null, "")
+                            journalDraft = ""
+                        }
+                    }) {
+                        Icon(Icons.Filled.Send, contentDescription = "Log entry", tint = TaskFlowAccent)
                     }
-                }) {
-                    Icon(Icons.Filled.Send, contentDescription = "Log entry", tint = TaskFlowAccent)
                 }
             }
         )
@@ -204,6 +225,19 @@ fun HomeScreen(
                 .clickable(onClick = onOpenAnalytics)
         )
     }
+}
+
+@Composable
+private fun HamburgerMenuItem(text: String, onClick: () -> Unit) {
+    Text(
+        text = text,
+        // Dark grey, not solid black, per the latest feedback.
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    )
 }
 
 @Composable
