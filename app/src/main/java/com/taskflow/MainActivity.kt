@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,8 +44,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
@@ -146,6 +145,20 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TaskFlowTheme {
+                val view = androidx.compose.ui.platform.LocalView.current
+                val darkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+                if (!view.isInEditMode) {
+                    androidx.compose.runtime.SideEffect {
+                        val window = this@MainActivity.window
+                        androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                            // Dark icons/text on light backgrounds, light on dark — without this,
+                            // the status bar icons default to one appearance regardless of theme,
+                            // which is exactly the poor-contrast-in-light-mode symptom.
+                            isAppearanceLightStatusBars = !darkTheme
+                            isAppearanceLightNavigationBars = !darkTheme
+                        }
+                    }
+                }
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
                     var overlay by remember { mutableStateOf<Overlay?>(null) }
@@ -182,16 +195,7 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         bottomBar = {
                             if (overlay == null) {
-                                NavigationBar {
-                                    navItems.forEach { item ->
-                                        NavigationBarItem(
-                                            selected = screen == item.screen,
-                                            onClick = { screen = item.screen },
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
-                                            label = { Text(item.label) }
-                                        )
-                                    }
-                                }
+                                TaskFlowBottomNav(current = screen, onSelect = { screen = it })
                             }
                         }
                     ) { innerPadding ->
@@ -236,6 +240,38 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskFlowBottomNav(current: Screen, onSelect: (Screen) -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            navItems.forEach { item ->
+                val selected = current == item.screen
+                Icon(
+                    item.icon,
+                    contentDescription = item.label,
+                    tint = if (selected) com.taskflow.ui.components.TaskFlowAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { onSelect(item.screen) }
+                )
             }
         }
     }
