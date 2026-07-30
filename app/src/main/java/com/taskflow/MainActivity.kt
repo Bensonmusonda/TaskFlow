@@ -162,6 +162,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
                     var overlay by remember { mutableStateOf<Overlay?>(null) }
+                    var pendingListToOpen by remember { mutableStateOf<TaskList?>(null) }
 
                     val homeViewModel: HomeViewModel = viewModel(
                         factory = HomeViewModel.provideFactory(app.taskRepository)
@@ -210,7 +211,8 @@ class MainActivity : ComponentActivity() {
                                         inboxViewModel = inboxViewModel,
                                         listViewModel = listViewModel,
                                         taskRepository = app.taskRepository,
-                                        tagRepository = app.tagRepository
+                                        tagRepository = app.tagRepository,
+                                        initialList = pendingListToOpen
                                     )
                                 }
                                 Overlay.Journal -> OverlayScaffold(title = "Journal", onBack = { overlay = null }) {
@@ -227,9 +229,11 @@ class MainActivity : ComponentActivity() {
                                         journalViewModel = journalViewModel,
                                         dailyActivity = dailyActivity,
                                         onAddTask = { overlay = Overlay.AddTask },
-                                        onOpenLists = { overlay = Overlay.Lists },
+                                        onOpenLists = { pendingListToOpen = null; overlay = Overlay.Lists },
+                                        onOpenList = { list -> pendingListToOpen = list; overlay = Overlay.Lists },
                                         onOpenJournal = { overlay = Overlay.Journal },
-                                        onOpenAnalytics = { screen = Screen.Analytics }
+                                        onOpenAnalytics = { screen = Screen.Analytics },
+                                        onOpenCalendar = { screen = Screen.Calendar }
                                     )
                                     Screen.Calendar -> CalendarScreen(viewModel = calendarViewModel)
                                     Screen.Analytics -> AnalyticsScreen(viewModel = analyticsViewModel)
@@ -311,11 +315,16 @@ private fun ListsSection(
     inboxViewModel: InboxViewModel,
     listViewModel: ListViewModel,
     taskRepository: TaskRepository,
-    tagRepository: TagRepository
+    tagRepository: TagRepository,
+    initialList: TaskList? = null
 ) {
     val lists by listViewModel.lists.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableStateOf<ListsTab>(ListsTab.AllLists) }
-    var openTabs by remember { mutableStateOf(listOf<TaskList>()) }
+    var selectedTab by remember {
+        mutableStateOf<ListsTab>(if (initialList != null) ListsTab.Detail(initialList) else ListsTab.AllLists)
+    }
+    var openTabs by remember {
+        mutableStateOf(if (initialList != null) listOf(initialList) else emptyList())
+    }
 
     val currentSelected = selectedTab
     if (currentSelected is ListsTab.Detail && lists.none { it.id == currentSelected.list.id }) {

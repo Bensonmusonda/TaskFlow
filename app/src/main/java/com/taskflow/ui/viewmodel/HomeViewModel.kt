@@ -28,8 +28,10 @@ class HomeViewModel(private val repository: TaskRepository) : ViewModel() {
         .map { tasks ->
             val zone = ZoneId.systemDefault()
             val today = LocalDate.now(zone)
+            // Deliberately not filtering !isCompleted here — the Today card wants
+            // checked-off tasks to stay visible (with the checkbox ticked), not disappear.
             tasks.filter { task ->
-                !task.isCompleted && task.dueDate != null &&
+                task.dueDate != null &&
                         java.time.Instant.ofEpochMilli(task.dueDate).atZone(zone).toLocalDate() == today
             }
         }
